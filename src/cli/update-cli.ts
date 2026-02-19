@@ -9,12 +9,13 @@ import {
   type UpdateStatusOptions,
   type UpdateWizardOptions,
 } from "./update-cli/shared.js";
+import { updateRestoreCommand, type UpdateRestoreOptions } from "./update-cli/restore.js";
 import { updateStatusCommand } from "./update-cli/status.js";
 import { updateCommand } from "./update-cli/update-command.js";
 import { updateWizardCommand } from "./update-cli/wizard.js";
 
-export { updateCommand, updateStatusCommand, updateWizardCommand };
-export type { UpdateCommandOptions, UpdateStatusOptions, UpdateWizardOptions };
+export { updateCommand, updateRestoreCommand, updateStatusCommand, updateWizardCommand };
+export type { UpdateCommandOptions, UpdateRestoreOptions, UpdateStatusOptions, UpdateWizardOptions };
 
 function inheritedUpdateJson(command?: Command): boolean {
   return Boolean(inheritOptionFromParent<boolean>(command, "json"));
@@ -51,6 +52,8 @@ export function registerUpdateCli(program: Command) {
         ["openclaw update --json", "Output result as JSON"],
         ["openclaw update --yes", "Non-interactive (accept downgrade prompts)"],
         ["openclaw update wizard", "Interactive update wizard"],
+        ["openclaw update restore", "Restore openclaw.json from the latest backup"],
+        ["openclaw update restore --list", "List available config backups"],
         ["openclaw --update", "Shorthand for openclaw update"],
       ] as const;
       const fmtExamples = examples
@@ -77,7 +80,7 @@ ${theme.heading("Notes:")}
   - Switch channels with --channel stable|beta|dev
   - For global installs: auto-updates via detected package manager when possible (see docs/install/updating.md)
   - Downgrades require confirmation (can break configuration)
-  - Skips update if the working directory has uncommitted changes
+  - Skips update if the working directory has uncommitted changes to tracked files (untracked user-data files are ignored)
 
 ${theme.muted("Docs:")} ${formatDocsLink("/cli/update", "docs.openclaw.ai/cli/update")}`;
     })
@@ -109,6 +112,39 @@ ${theme.muted("Docs:")} ${formatDocsLink("/cli/update", "docs.openclaw.ai/cli/up
       try {
         await updateWizardCommand({
           timeout: inheritedUpdateTimeout(opts, command),
+        });
+      } catch (err) {
+        defaultRuntime.error(String(err));
+        defaultRuntime.exit(1);
+      }
+    });
+
+  update
+    .command("restore")
+    .description("Restore openclaw.json from a pre-update config backup")
+    .option("--list", "List available config backups", false)
+    .option("--latest", "Restore latest backup without confirmation prompt", false)
+    .option("--json", "Output result as JSON", false)
+    .addHelpText(
+      "after",
+      () =>
+        `\n${theme.heading("Examples:")}\n${formatHelpExamples([
+          ["openclaw update restore", "Interactively restore the latest backup."],
+          ["openclaw update restore --list", "List all available backups."],
+          ["openclaw update restore --latest", "Restore latest backup without prompting."],
+          ["openclaw update restore --json", "JSON output."],
+        ])}\n\n${theme.heading("Notes:")}\n${theme.muted(
+          "- Backups are created automatically before each openclaw update run",
+        )}\n${theme.muted("- The 3 most recent backups are retained")}\n${theme.muted(
+          "- A snapshot of the current config is taken before restoring",
+        )}\n`,
+    )
+    .action(async (opts, command) => {
+      try {
+        await updateRestoreCommand({
+          list: Boolean(opts.list),
+          latest: Boolean(opts.latest),
+          json: Boolean(opts.json) || inheritedUpdateJson(command),
         });
       } catch (err) {
         defaultRuntime.error(String(err));

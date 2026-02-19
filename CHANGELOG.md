@@ -6,6 +6,12 @@ Docs: https://docs.openclaw.ai
 
 ### Changes
 
+- Gateway/Channels: document and expose `gateway.channelHealthCheckMinutes` (default: 5) — the built-in channel watchdog that auto-detects disconnected channels (WhatsApp, Telegram, etc.) and restarts them, with up to 3 restarts per hour per channel before backing off. Set to 0 to disable. Improves WhatsApp/Telegram connection stability without requiring manual intervention.
+- Session/Identity: expand `session.identityLinks` documentation and config schema to enable cross-channel session continuity — map one user's WhatsApp identity to their Telegram identity so both channels share the same conversation thread and history. Example: `{ "whatsapp:+15551234567": ["telegram:123456789"] }`.
+- Session/Memory: document `session.idleMinutes` (default: 60) and `session.resetByChannel` for per-channel idle timeout overrides, enabling longer context retention. Example: keep WhatsApp sessions alive for 24 h while keeping other channels at defaults: `{ "resetByChannel": { "whatsapp": { "mode": "idle", "idleMinutes": 1440 } } }`.
+- Agents/Models: add `fallbackPolicy` and `autoFallbackModels` to `agents.defaults.model` for smarter quota resilience. Setting `fallbackPolicy: "auto"` automatically discovers other providers configured in `auth.profiles` and appends them as fallback candidates when the primary provider's quota or credits are exhausted, using `autoFallbackModels` overrides or built-in per-provider defaults (Anthropic → `claude-haiku-3-5`, OpenAI → `gpt-4.1-mini`, Google → `gemini-2.0-flash`, Groq → `llama-3.3-70b-versatile`, GitHub Copilot → `gpt-4o-mini`, Cerebras → `llama-3.3-70b`, AWS Bedrock → `us.amazon.nova-lite-v1:0`). Eliminates disconnections when quota is exhausted without requiring manual fallback lists.
+- CLI/Update: back up `openclaw.json` to a timestamped snapshot (`openclaw.backup-<timestamp>.json`) before every update run, keeping the 3 most recent backups and pruning older ones after a successful update, so `doctor --fix` schema migrations always have a recovery path.
+- CLI/Update: add a `Data` row to `openclaw update status` output showing the resolved state directory (`~/.openclaw`), making it explicit that code and user data (sessions, transcripts, credentials, history) are stored separately and are never touched by updates.
 - iOS/Gateway: wake disconnected iOS nodes via APNs before `nodes.invoke` and auto-reconnect gateway sessions on silent push wake to reduce invoke failures while the app is backgrounded. (#20332) Thanks @mbelinky.
 - iOS/APNs: add push registration and notification-signing configuration for node delivery. (#20308) Thanks @mbelinky.
 - Gateway/APNs: add a push-test pipeline for APNs delivery validation in gateway flows. (#20307) Thanks @mbelinky.
@@ -16,6 +22,7 @@ Docs: https://docs.openclaw.ai
 ### Fixes
 
 - Telegram/Agents: gate exec/bash tool-failure warnings behind verbose mode so default Telegram replies stay clean while verbose sessions still surface diagnostics. (#20560) Thanks @obviyus.
+- CLI/Update: fix git-install dirty check by adding `--untracked-files=no` to the pre-update `git status --porcelain` invocation so untracked user-data files in the state directory (sessions, credentials, agent configs) no longer cause updates to be skipped with a false "dirty working directory" error when `~/.openclaw/` is used as a git checkout.
 - Gateway/Daemon: forward `TMPDIR` into installed service environments so macOS LaunchAgent gateway runs can open SQLite temp/journal files reliably instead of failing with `SQLITE_CANTOPEN`. (#20512) Thanks @Clawborn.
 - Agents/Billing: include the active model that produced a billing error in user-facing billing messages (for example, `OpenAI (gpt-5.3)`) across payload, failover, and lifecycle error paths, so users can identify exactly which key needs credits. (#20510) Thanks @echoVic.
 - iOS/Screen: move `WKWebView` lifecycle ownership into `ScreenWebView` coordinator and explicit attach/detach flow to reduce gesture/lifecycle crash risk (`__NSArrayM insertObject:atIndex:` paths) during screen tab updates. (#20366) Thanks @ngutman.
