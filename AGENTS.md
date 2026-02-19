@@ -17,6 +17,85 @@
   - Extensions (channel plugins): `extensions/*` (e.g. `extensions/msteams`, `extensions/matrix`, `extensions/zalo`, `extensions/zalouser`, `extensions/voice-call`)
 - When adding channels/extensions/apps/docs, update `.github/labeler.yml` and create matching GitHub labels (use existing channel/extension label colors).
 
+### Key `src/` Subdirectory Reference
+
+| Directory | Purpose |
+|---|---|
+| `src/agents/` | AI agent runtime: pi-embedded runner, model selection, auth profiles, subagents, skills, sandbox, tools, bash execution |
+| `src/acp/` | Agent Client Protocol (ACP) integration |
+| `src/browser/` | Browser/playwright automation integration |
+| `src/canvas-host/` | Canvas/A2UI host and bundled UI assets (`a2ui/.bundle.hash` auto-generated) |
+| `src/channels/` | Channel routing, shared messaging abstractions |
+| `src/cli/` | CLI command wiring, option parsing, progress, prompts, daemon/gateway CLI |
+| `src/commands/` | High-level CLI command implementations (agent, send, hooks, models, etc.) |
+| `src/config/` | Config loading, migrations, evaluation |
+| `src/cron/` | Scheduled task (cron) runner |
+| `src/daemon/` | Background daemon process management |
+| `src/discord/` | Discord channel integration |
+| `src/docs/` | In-app docs helpers |
+| `src/gateway/` | WebSocket gateway server: auth, hooks, sessions, HTTP endpoints, OpenAI/OpenResponses API shims, control UI |
+| `src/hooks/` | Automation hooks (webhook, poll, heartbeat, Gmail PubSub, bundled handlers) |
+| `src/imessage/` | iMessage channel integration |
+| `src/infra/` | Infrastructure utilities: networking, ports, bonjour/mDNS, heartbeat, state migrations, retries, update logic |
+| `src/line/` | LINE messaging channel integration |
+| `src/link-understanding/` | URL/link content extraction |
+| `src/logger.ts` | Logging setup (tslog-based) |
+| `src/macos/` | macOS-specific helpers |
+| `src/markdown/` | Markdown rendering utilities |
+| `src/media/` | Media pipeline: audio, video, image processing |
+| `src/media-understanding/` | Media understanding/analysis |
+| `src/memory/` | Memory system (search, batch processing) |
+| `src/node-host/` | Node (device) host management |
+| `src/pairing/` | Device pairing protocol |
+| `src/plugin-sdk/` | Public plugin SDK (exported as `openclaw/plugin-sdk`) |
+| `src/plugins/` | Built-in plugin wiring |
+| `src/process/` | Process spawning, exec, RPC bridges |
+| `src/providers/` | AI provider integrations (OpenAI, Anthropic, Gemini, Bedrock, Ollama, etc.) |
+| `src/routing/` | Message routing between channels |
+| `src/scripts/` | Dev-time script helpers |
+| `src/security/` | Security: DM allowlists, exec approvals, safe bins |
+| `src/sessions/` | Session management |
+| `src/shared/` | Shared types, utilities, and helpers used across modules |
+| `src/signal/` | Signal channel integration |
+| `src/slack/` | Slack channel integration |
+| `src/telegram/` | Telegram channel integration |
+| `src/terminal/` | Terminal output: palette, tables, ANSI utilities |
+| `src/tts/` | Text-to-speech |
+| `src/tui/` | Terminal UI (TUI) interface |
+| `src/types/` | Shared TypeScript types |
+| `src/utils/` | General utility functions |
+| `src/web/` | WhatsApp Web/web channel integration |
+| `src/whatsapp/` | WhatsApp integration |
+| `src/wizard/` | Onboarding wizard flows |
+
+### Extensions (`extensions/`)
+
+Extensions are workspace packages implementing channel plugins and integrations. Each lives in its own `package.json` and depends on `openclaw/plugin-sdk` via `peerDependencies`/`devDependencies`.
+
+Current extensions include:
+`bluebubbles`, `copilot-proxy`, `device-pair`, `diagnostics-otel`, `discord`, `feishu`, `google-antigravity-auth`, `google-gemini-cli-auth`, `googlechat`, `imessage`, `irc`, `line`, `llm-task`, `lobster`, `matrix`, `mattermost`, `memory-core`, `memory-lancedb`, `minimax-portal-auth`, `msteams`, `nextcloud-talk`, `nostr`, `open-prose`, `phone-control`, `qwen-portal-auth`, `shared`, `signal`, `slack`, `talk-voice`, `telegram`, `thread-ownership`, `tlon`, `twitch`, `voice-call`, `whatsapp`, `zalo`, `zalouser`
+
+### Mobile & Desktop Apps (`apps/`)
+
+- `apps/android/`: Kotlin + Jetpack Compose Android node app (minSdk 31). Connects to gateway via WebSocket mDNS discovery. Build with `pnpm android:*` scripts or Gradle directly.
+- `apps/ios/`: Swift/SwiftUI iOS app (super-alpha, internal). Uses XcodeGen (`project.yml`). Build with `pnpm ios:*` scripts or `xcodegen generate` + Xcode.
+- `apps/macos/`: Swift Package Manager macOS menubar/gateway app. Build with `pnpm mac:package` or `scripts/package-mac-app.sh`. Restart with `scripts/restart-mac.sh`.
+
+### UI Subsystem (`ui/`)
+
+- Web control UI built with Lit (legacy decorators — keep `@state()` / `@property()` style; do not switch to standard decorators).
+- Build: `pnpm ui:build`. Dev: `pnpm ui:dev`.
+- `tsconfig.json` has `experimentalDecorators: true` and `useDefineForClassFields: false`; do not change these without updating the build tooling.
+
+### Packages (`packages/`)
+
+- `packages/clawdbot/`: ClawDBot package.
+- `packages/moltbot/`: MoltBot package.
+
+### Workspace layout
+
+`pnpm-workspace.yaml` defines: `.` (root), `ui`, `packages/*`, `extensions/*`.
+
 ## Docs Linking (Mintlify)
 
 - Docs are hosted on Mintlify (docs.openclaw.ai).
@@ -27,7 +106,7 @@
 - When Peter asks for links, reply with full `https://docs.openclaw.ai/...` URLs (not root-relative).
 - When you touch docs, end the reply with the `https://docs.openclaw.ai/...` URLs you referenced.
 - README (GitHub): keep absolute docs URLs (`https://docs.openclaw.ai/...`) so links work on GitHub.
-- Docs content must be generic: no personal device names/hostnames/paths; use placeholders like `user@gateway-host` and “gateway host”.
+- Docs content must be generic: no personal device names/hostnames/paths; use placeholders like `user@gateway-host` and "gateway host".
 
 ## Docs i18n (zh-CN)
 
@@ -35,7 +114,7 @@
 - Pipeline: update English docs → adjust glossary (`docs/.i18n/glossary.zh-CN.json`) → run `scripts/docs-i18n` → apply targeted fixes only if instructed.
 - Translation memory: `docs/.i18n/zh-CN.tm.jsonl` (generated).
 - See `docs/.i18n/README.md`.
-- The pipeline can be slow/inefficient; if it’s dragging, ping @jospalmbier on Discord instead of hacking around it.
+- The pipeline can be slow/inefficient; if it's dragging, ping @jospalmbier on Discord instead of hacking around it.
 
 ## exe.dev VM ops (general)
 
@@ -52,7 +131,7 @@
 
 - Runtime baseline: Node **22+** (keep Node + Bun paths working).
 - Install deps: `pnpm install`
-- If deps are missing (for example `node_modules` missing, `vitest not found`, or `command not found`), run the repo’s package-manager install command (prefer lockfile/README-defined PM), then rerun the exact requested command once. Apply this to test/build/lint/typecheck/dev commands; if retry still fails, report the command and first actionable error.
+- If deps are missing (for example `node_modules` missing, `vitest not found`, or `command not found`), run the repo's package-manager install command (prefer lockfile/README-defined PM), then rerun the exact requested command once. Apply this to test/build/lint/typecheck/dev commands; if retry still fails, report the command and first actionable error.
 - Pre-commit hooks: `prek install` (runs same checks as CI)
 - Also supported: `bun install` (keep `pnpm-lock.yaml` + Bun patching in sync when touching deps/patches).
 - Prefer Bun for TypeScript execution (scripts, dev, tests): `bun <file.ts>` / `bunx <tool>`.
@@ -66,6 +145,28 @@
 - Format fix: `pnpm format:fix` (oxfmt --write)
 - Tests: `pnpm test` (vitest); coverage: `pnpm test:coverage`
 
+### Build System
+
+- Bundler: `tsdown` (rolldown-based). Config: `tsdown.config.ts`.
+- Build entry points (all emit to `dist/`):
+  - `src/index.ts` — main package export
+  - `src/entry.ts` — CLI entrypoint
+  - `src/cli/daemon-cli.ts` — daemon CLI shim
+  - `src/infra/warning-filter.ts` — warning filter
+  - `src/plugin-sdk/index.ts` → `dist/plugin-sdk/`
+  - `src/plugin-sdk/account-id.ts` → `dist/plugin-sdk/`
+  - `src/extensionAPI.ts` — extension API
+  - `src/hooks/bundled/*/handler.ts` + `src/hooks/llm-slug-generator.ts` — bundled hook handlers
+- Post-build scripts: canvas a2ui copy, hook metadata copy, HTML template copy, build-info write, CLI compat write.
+- Module resolution: `NodeNext` (ESM). TypeScript strict mode. `experimentalDecorators: true` (for Lit UI). Plugin SDK also aliased via jiti at runtime.
+
+### TypeScript Path Aliases
+
+Used in `tsconfig.json` (and mirrored in `vitest.config.ts` for tests):
+- `openclaw/plugin-sdk` → `src/plugin-sdk/index.ts`
+- `openclaw/plugin-sdk/*` → `src/plugin-sdk/*.ts`
+- `openclaw/plugin-sdk/account-id` → `src/plugin-sdk/account-id.ts`
+
 ## Coding Style & Naming Conventions
 
 - Language: TypeScript (ESM). Prefer strict typing; avoid `any`.
@@ -75,7 +176,7 @@
 - If this pattern is needed, stop and get explicit approval before shipping; default behavior is to split/refactor into an explicit class hierarchy and keep members strongly typed.
 - In tests, prefer per-instance stubs over prototype mutation (`SomeClass.prototype.method = ...`) unless a test explicitly documents why prototype-level patching is required.
 - Add brief code comments for tricky or non-obvious logic.
-- Keep files concise; extract helpers instead of “V2” copies. Use existing patterns for CLI options and dependency injection via `createDefaultDeps`.
+- Keep files concise; extract helpers instead of "V2" copies. Use existing patterns for CLI options and dependency injection via `createDefaultDeps`.
 - Aim to keep files under ~700 LOC; guideline only (not a hard guardrail). Split/refactor when it improves clarity or testability.
 - Naming: use **OpenClaw** for product/app/docs headings; use `openclaw` for CLI command, package/binary, paths, and config keys.
 
@@ -87,15 +188,41 @@
 
 ## Testing Guidelines
 
-- Framework: Vitest with V8 coverage thresholds (70% lines/branches/functions/statements).
-- Naming: match source names with `*.test.ts`; e2e in `*.e2e.test.ts`.
+- Framework: Vitest with V8 coverage thresholds (70% lines/branches(55%)/functions/statements).
+- Naming: match source names with `*.test.ts`; e2e in `*.e2e.test.ts`; live (real-key) in `*.live.test.ts`.
 - Run `pnpm test` (or `pnpm test:coverage`) before pushing when you touch logic.
 - Do not set test workers above 16; tried already.
 - Live tests (real keys): `CLAWDBOT_LIVE_TEST=1 pnpm test:live` (OpenClaw-only) or `LIVE=1 pnpm test:live` (includes provider live tests). Docker: `pnpm test:docker:live-models`, `pnpm test:docker:live-gateway`. Onboarding Docker E2E: `pnpm test:docker:onboard`.
-- Full kit + what’s covered: `docs/testing.md`.
+- Full kit + what's covered: `docs/testing.md`.
 - Changelog: user-facing changes only; no internal/meta notes (version alignment, appcast reminders, release process).
 - Pure test additions/fixes generally do **not** need a changelog entry unless they alter user-facing behavior or the user asks for one.
 - Mobile: before using a simulator, check for connected real devices (iOS + Android) and prefer them when available.
+
+### Vitest Configuration Files
+
+| Config file | Purpose | Pool |
+|---|---|---|
+| `vitest.config.ts` | Root config; base for all others | `forks` |
+| `vitest.unit.config.ts` | Unit tests only (excludes e2e, gateway, extensions) | `forks` |
+| `vitest.e2e.config.ts` | E2E tests (`*.e2e.test.ts`) | `vmForks` |
+| `vitest.live.config.ts` | Live tests (real API keys, `*.live.test.ts`) | varies |
+| `vitest.gateway.config.ts` | Gateway integration tests | varies |
+| `vitest.extensions.config.ts` | Extension tests | varies |
+
+- `pnpm test` runs `scripts/test-parallel.mjs` which orchestrates multiple vitest configs.
+- `pnpm test:fast` runs only unit tests (fastest; no e2e).
+- `pnpm test:coverage` runs unit tests with coverage reporting.
+- E2E workers: controlled via `OPENCLAW_E2E_WORKERS` env var (defaults to CPU-scaled, max 16).
+- E2E verbosity: set `OPENCLAW_E2E_VERBOSE=1`.
+
+### Coverage Thresholds & Scope
+
+Coverage is scoped to `./src/**/*.ts` only (not `extensions/`, `apps/`, `ui/`, `test/`).
+
+Thresholds (unit suite):
+- Lines: 70% | Functions: 70% | Branches: 55% | Statements: 70%
+
+Large integration surfaces (`src/gateway/**`, `src/agents/**`, channels, CLI, TUI, etc.) are excluded from unit coverage and validated via e2e/manual/Docker tests.
 
 ## Commit & Pull Request Guidelines
 
@@ -123,6 +250,7 @@
 - Environment variables: see `~/.profile`.
 - Never commit or publish real phone numbers, videos, or live configuration values. Use obviously fake placeholders in docs, tests, and examples.
 - Release flow: always read `docs/reference/RELEASING.md` and `docs/platforms/mac/release.md` before any release work; do not ask routine questions once those docs answer them.
+- Environment variable precedence (highest → lowest): process env → `./.env` → `~/.openclaw/.env` → `openclaw.json` `env` block. Existing non-empty process env vars are not overridden.
 
 ## GHSA (Repo Advisory) Patch/Publish
 
@@ -152,16 +280,16 @@
 - Never update the Carbon dependency.
 - Any dependency with `pnpm.patchedDependencies` must use an exact version (no `^`/`~`).
 - Patching dependencies (pnpm patches, overrides, or vendored changes) requires explicit approval; do not do this by default.
-- CLI progress: use `src/cli/progress.ts` (`osc-progress` + `@clack/prompts` spinner); don’t hand-roll spinners/bars.
+- CLI progress: use `src/cli/progress.ts` (`osc-progress` + `@clack/prompts` spinner); don't hand-roll spinners/bars.
 - Status output: keep tables + ANSI-safe wrapping (`src/terminal/table.ts`); `status --all` = read-only/pasteable, `status --deep` = probes.
 - Gateway currently runs only as the menubar app; there is no separate LaunchAgent/helper label installed. Restart via the OpenClaw Mac app or `scripts/restart-mac.sh`; to verify/kill use `launchctl print gui/$UID | grep openclaw` rather than assuming a fixed label. **When debugging on macOS, start/stop the gateway via the app, not ad-hoc tmux sessions; kill any temporary tunnels before handoff.**
 - macOS logs: use `./scripts/clawlog.sh` to query unified logs for the OpenClaw subsystem; it supports follow/tail/category filters and expects passwordless sudo for `/usr/bin/log`.
 - If shared guardrails are available locally, review them; otherwise follow this repo's guidance.
-- SwiftUI state management (iOS/macOS): prefer the `Observation` framework (`@Observable`, `@Bindable`) over `ObservableObject`/`@StateObject`; don’t introduce new `ObservableObject` unless required for compatibility, and migrate existing usages when touching related code.
+- SwiftUI state management (iOS/macOS): prefer the `Observation` framework (`@Observable`, `@Bindable`) over `ObservableObject`/`@StateObject`; don't introduce new `ObservableObject` unless required for compatibility, and migrate existing usages when touching related code.
 - Connection providers: when adding a new connection, update every UI surface and docs (macOS app, web UI, mobile if applicable, onboarding/overview docs) and add matching status + configuration forms so provider lists and settings stay in sync.
 - Version locations: `package.json` (CLI), `apps/android/app/build.gradle.kts` (versionName/versionCode), `apps/ios/Sources/Info.plist` + `apps/ios/Tests/Info.plist` (CFBundleShortVersionString/CFBundleVersion), `apps/macos/Sources/OpenClaw/Resources/Info.plist` (CFBundleShortVersionString/CFBundleVersion), `docs/install/updating.md` (pinned npm version), `docs/platforms/mac/release.md` (APP_VERSION/APP_BUILD examples), Peekaboo Xcode projects/Info.plists (MARKETING_VERSION/CURRENT_PROJECT_VERSION).
 - "Bump version everywhere" means all version locations above **except** `appcast.xml` (only touch appcast when cutting a new macOS Sparkle release).
-- **Restart apps:** “restart iOS/Android apps” means rebuild (recompile/install) and relaunch, not just kill/launch.
+- **Restart apps:** "restart iOS/Android apps" means rebuild (recompile/install) and relaunch, not just kill/launch.
 - **Device checks:** before testing, verify connected real devices (iOS/Android) before reaching for simulators/emulators.
 - iOS Team ID lookup: `security find-identity -p codesigning -v` → use Apple Development (…) TEAMID. Fallback: `defaults read com.apple.dt.Xcode IDEProvisioningTeamIdentifiers`.
 - A2UI bundle hash: `src/canvas-host/a2ui/.bundle.hash` is auto-generated; ignore unexpected changes, and only regenerate via `pnpm canvas:a2ui:bundle` (or `scripts/bundle-a2ui.sh`) when needed. Commit the hash as a separate commit.
@@ -178,19 +306,19 @@
   - If commit/push already requested, auto-stage and include formatting-only follow-ups in the same commit (or a tiny follow-up commit if needed), no extra confirmation.
   - Only ask when changes are semantic (logic/data/behavior).
 - Lobster seam: use the shared CLI palette in `src/terminal/palette.ts` (no hardcoded colors); apply palette to onboarding/config prompts and other TTY UI output as needed.
-- **Multi-agent safety:** focus reports on your edits; avoid guard-rail disclaimers unless truly blocked; when multiple agents touch the same file, continue if safe; end with a brief “other files present” note only if relevant.
+- **Multi-agent safety:** focus reports on your edits; avoid guard-rail disclaimers unless truly blocked; when multiple agents touch the same file, continue if safe; end with a brief "other files present" note only if relevant.
 - Bug investigations: read source code of relevant npm dependencies and all related local code before concluding; aim for high-confidence root cause.
 - Code style: add brief comments for tricky logic; keep files under ~500 LOC when feasible (split/refactor as needed).
 - Tool schema guardrails (google-antigravity): avoid `Type.Union` in tool input schemas; no `anyOf`/`oneOf`/`allOf`. Use `stringEnum`/`optionalStringEnum` (Type.Unsafe enum) for string lists, and `Type.Optional(...)` instead of `... | null`. Keep top-level tool schema as `type: "object"` with `properties`.
 - Tool schema guardrails: avoid raw `format` property names in tool schemas; some validators treat `format` as a reserved keyword and reject the schema.
-- When asked to open a “session” file, open the Pi session logs under `~/.openclaw/agents/<agentId>/sessions/*.jsonl` (use the `agent=<id>` value in the Runtime line of the system prompt; newest unless a specific ID is given), not the default `sessions.json`. If logs are needed from another machine, SSH via Tailscale and read the same path there.
+- When asked to open a "session" file, open the Pi session logs under `~/.openclaw/agents/<agentId>/sessions/*.jsonl` (use the `agent=<id>` value in the Runtime line of the system prompt; newest unless a specific ID is given), not the default `sessions.json`. If logs are needed from another machine, SSH via Tailscale and read the same path there.
 - Do not rebuild the macOS app over SSH; rebuilds must be run directly on the Mac.
 - Never send streaming/partial replies to external messaging surfaces (WhatsApp, Telegram); only final replies should be delivered there. Streaming/tool events may still go to internal UIs/control channel.
 - Voice wake forwarding tips:
-  - Command template should stay `openclaw-mac agent --message "${text}" --thinking low`; `VoiceWakeForwarder` already shell-escapes `${text}`. Don’t add extra quotes.
-  - launchd PATH is minimal; ensure the app’s launch agent PATH includes standard system paths plus your pnpm bin (typically `$HOME/Library/pnpm`) so `pnpm`/`openclaw` binaries resolve when invoked via `openclaw-mac`.
-- For manual `openclaw message send` messages that include `!`, use the heredoc pattern noted below to avoid the Bash tool’s escaping.
-- Release guardrails: do not change version numbers without operator’s explicit consent; always ask permission before running any npm publish/release step.
+  - Command template should stay `openclaw-mac agent --message "${text}" --thinking low`; `VoiceWakeForwarder` already shell-escapes `${text}`. Don't add extra quotes.
+  - launchd PATH is minimal; ensure the app's launch agent PATH includes standard system paths plus your pnpm bin (typically `$HOME/Library/pnpm`) so `pnpm`/`openclaw` binaries resolve when invoked via `openclaw-mac`.
+- For manual `openclaw message send` messages that include `!`, use the heredoc pattern noted below to avoid the Bash tool's escaping.
+- Release guardrails: do not change version numbers without operator's explicit consent; always ask permission before running any npm publish/release step.
 
 ## NPM + 1Password (publish/verify)
 
