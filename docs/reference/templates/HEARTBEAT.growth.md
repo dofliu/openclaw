@@ -58,24 +58,44 @@ read_when:
 
 ## 每月第一個週一（Monthly — 月初第一個週一）
 
+> **月度蒸餾比週度反思重，需要更多 token。**
+> 若 30 天的 memory/ 超過 20 個檔案，直接用 `sessions_spawn` 卸載給子代理人。
+
 ```
-□ 讀最近 30 天的 memory/*.md 和 MEMORY.md
-□ 更新 bank/ 知識庫：
-  - 有沒有新的客觀事實？→ bank/world.md
-  - 有沒有值得記錄的活動？→ bank/experience.md
-  - 有沒有形成新觀點？→ bank/opinions.md
-  - 有沒有重要的人物/專案頁面需要建立或更新？→ bank/entities/
+□ 估算工作量：
+  - memory/ 檔案數 ≤ 20 → 直接執行（見下）
+  - memory/ 檔案數 > 20 → 用 sessions_spawn（見後）
 
-□ SOUL.md 評估：
-  - 個性描述還準確嗎？
-  - 有沒有新的邊界或偏好需要加入？
-  - 有沒有過時的規則需要移除？
+□ 直接執行路徑（≤ 20 個檔案）：
+  1. 讀最近 30 天的 memory/*.md 和 MEMORY.md
+  2. 更新 bank/ 知識庫：
+     - 新客觀事實 → bank/world.md
+     - 值得記錄的活動 → bank/experience.md
+     - 新觀點或信心變化 → bank/opinions.md
+     - 新的重要人物/專案 → bank/entities/<slug>.md
+  3. SOUL.md 評估（個性、邊界、過時規則）
+  4. 更新 GROWTH_LOG.md 統計摘要表格
+  5. 回覆月度反思摘要（≤ 150 字）
+```
 
-□ 成長統計更新（GROWTH_LOG.md 的統計摘要表格）
+子代理人路徑（memory/ > 20 個檔案），使用 `sessions_spawn` tool 呼叫：
 
-□ 若月度任務較重，可用 sessions_spawn 觸發子代理人並行處理：
-  /subagents spawn --task "讀取最近 30 天 memory/*.md，更新 bank/ 目錄，
-  完成後摘要哪些檔案被更新" --label "monthly-distillation"
+```json
+{
+  "task": "執行月度知識蒸餾。1. 讀取 workspace 中最近 30 天的 memory/*.md。2. 識別新的客觀事實（工具、環境、使用者偏好）→ 更新 bank/world.md。3. 識別值得記錄的活動 → 更新 bank/experience.md。4. 識別新觀點或信心變化 → 更新 bank/opinions.md。5. 若有新的重要人物或專案 → 在 bank/entities/ 建立或更新頁面。完成後回傳：更新了哪些檔案、哪些知識是新增的、哪些模式首次出現。",
+  "label": "monthly-distillation",
+  "thinking": "low",
+  "runTimeoutSeconds": 600,
+  "cleanup": "keep"
+}
+```
+
+```
+□ 子代理人完成後（子代理人路徑）：
+  - 讀取子代理人的回傳摘要
+  - 根據摘要更新 SOUL.md（若有需要）
+  - 更新 GROWTH_LOG.md 統計摘要
+  - 回覆月度反思摘要（≤ 150 字）
 ```
 
 ---
