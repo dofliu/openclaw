@@ -188,6 +188,38 @@ function resolveImageFallbackCandidates(params: {
     addRaw(raw, true);
   }
 
+  // Auto-fallback policy: when imageModel.fallbackPolicy is "auto" and no
+  // modelOverride is active, discover additional providers from auth.profiles.
+  if (!params.modelOverride?.trim()) {
+    const cfgImageModel = params.cfg?.agents?.defaults?.imageModel;
+    const policy =
+      typeof cfgImageModel === "object" && cfgImageModel !== null
+        ? (cfgImageModel as AgentModelListConfig).fallbackPolicy
+        : undefined;
+    if (policy === "auto") {
+      const autoFallbackModels =
+        typeof cfgImageModel === "object" && cfgImageModel !== null
+          ? ((cfgImageModel as AgentModelListConfig).autoFallbackModels ?? {})
+          : {};
+      const authProfiles = Object.values(params.cfg?.auth?.profiles ?? {});
+      const addedProviders = new Set(candidates.map((c) => c.provider));
+      for (const profile of authProfiles) {
+        const rawProvider = String(profile.provider ?? "").trim().toLowerCase();
+        if (!rawProvider || addedProviders.has(rawProvider)) {
+          continue;
+        }
+        const model =
+          autoFallbackModels[rawProvider] ?? PROVIDER_FALLBACK_DEFAULTS[rawProvider];
+        if (!model) {
+          continue;
+        }
+        const normalized = normalizeModelRef(rawProvider, model);
+        addCandidate(normalized, false);
+        addedProviders.add(rawProvider);
+      }
+    }
+  }
+
   return candidates;
 }
 
