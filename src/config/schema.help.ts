@@ -426,4 +426,228 @@ export const FIELD_HELP: Record<string, string> = {
     'Direct message access control ("pairing" recommended). "open" requires channels.slack.allowFrom=["*"] (legacy: channels.slack.dm.allowFrom).',
   "channels.slack.dmPolicy":
     'Direct message access control ("pairing" recommended). "open" requires channels.slack.allowFrom=["*"].',
+
+  // diagnostics
+  "diagnostics.enabled":
+    "Enable diagnostics subsystem (prerequisite for flags, cacheTrace, and otel).",
+  "diagnostics.otel.enabled":
+    "Enable OpenTelemetry export (traces, metrics, logs). Requires diagnostics.enabled.",
+  "diagnostics.otel.endpoint":
+    "OTLP collector endpoint URL (e.g. http://localhost:4318). Required when otel is enabled.",
+  "diagnostics.otel.protocol":
+    'OTLP export protocol ("http/protobuf" or "grpc"). Default: "http/protobuf".',
+  "diagnostics.otel.headers":
+    'Extra HTTP headers sent with every OTLP request (e.g. { Authorization: "Bearer …" }).',
+  "diagnostics.otel.serviceName":
+    'Service name reported in OTLP traces/metrics (default: "openclaw").',
+  "diagnostics.otel.traces":
+    "Export distributed traces to the OTLP endpoint (default: true when otel is enabled).",
+  "diagnostics.otel.metrics":
+    "Export metrics to the OTLP endpoint (default: true when otel is enabled).",
+  "diagnostics.otel.logs":
+    "Export log records to the OTLP endpoint (default: true when otel is enabled).",
+  "diagnostics.otel.sampleRate":
+    "Fraction of traces to sample (0.0–1.0; default: 1.0 = record all).",
+  "diagnostics.otel.flushIntervalMs":
+    "How often (ms) the metrics exporter flushes pending data (default: 60000).",
+
+  // gateway.remote credentials
+  "gateway.remote.token":
+    "Token for authenticating to the remote gateway (used with token-based auth; fallback: OPENCLAW_REMOTE_TOKEN env var).",
+  "gateway.remote.password":
+    "Password for authenticating to the remote gateway (used with password/Tailscale auth).",
+
+  // tools.media — shared
+  "tools.media.models":
+    "Shared model list available to all media understanding types (image/audio/video). Per-type models field overrides this.",
+  "tools.media.concurrency":
+    "Maximum concurrent media understanding requests across all types (default: 2).",
+
+  // tools.media.image
+  "tools.media.image.enabled":
+    "Enable image understanding — agent receives a text description of inbound images.",
+  "tools.media.image.maxBytes":
+    "Maximum image size in bytes sent to the understanding model (oversized images are skipped).",
+  "tools.media.image.maxChars":
+    "Maximum characters of understanding output injected into the transcript (truncated).",
+  "tools.media.image.prompt":
+    "System/instruction prompt override for the image understanding model.",
+  "tools.media.image.timeoutSeconds":
+    "Timeout in seconds for image understanding requests (default: 30).",
+  "tools.media.image.attachments":
+    'Attachment selection policy: { mode: "first" | "all" | "none", maxAttachments?: number }.',
+  "tools.media.image.models":
+    "Ordered model list for image understanding (overrides tools.media.models). First available wins.",
+  "tools.media.image.scope":
+    "Scope gating for image understanding — limit to specific channels or conversation types.",
+
+  // tools.media.audio
+  "tools.media.audio.enabled":
+    "Enable audio understanding — agent receives a transcript of inbound voice/audio messages.",
+  "tools.media.audio.maxBytes":
+    "Maximum audio file size in bytes sent to the understanding model (oversized audio is skipped).",
+  "tools.media.audio.maxChars":
+    "Maximum characters of audio transcript injected into the transcript (truncated).",
+  "tools.media.audio.prompt":
+    "System/instruction prompt override for the audio understanding model.",
+  "tools.media.audio.timeoutSeconds":
+    "Timeout in seconds for audio understanding requests (default: 60).",
+  "tools.media.audio.language":
+    'BCP-47 language hint for transcription (e.g. "zh", "ja"). Omit for auto-detect.',
+  "tools.media.audio.attachments":
+    'Attachment selection policy for audio: { mode: "first" | "all" | "none", maxAttachments?: number }.',
+  "tools.media.audio.models":
+    "Ordered model list for audio understanding (overrides tools.media.models). First available wins.",
+  "tools.media.audio.scope":
+    "Scope gating for audio understanding — limit to specific channels or conversation types.",
+
+  // tools.media.video
+  "tools.media.video.enabled":
+    "Enable video understanding — agent receives a description or transcript of inbound video clips.",
+  "tools.media.video.maxBytes":
+    "Maximum video file size in bytes sent to the understanding model (oversized video is skipped).",
+  "tools.media.video.maxChars":
+    "Maximum characters of video understanding output injected into the transcript (truncated).",
+  "tools.media.video.prompt":
+    "System/instruction prompt override for the video understanding model.",
+  "tools.media.video.timeoutSeconds":
+    "Timeout in seconds for video understanding requests (default: 120).",
+  "tools.media.video.attachments":
+    'Attachment selection policy for video: { mode: "first" | "all" | "none", maxAttachments?: number }.',
+  "tools.media.video.models":
+    "Ordered model list for video understanding (overrides tools.media.models). First available wins.",
+  "tools.media.video.scope":
+    "Scope gating for video understanding — limit to specific channels or conversation types.",
+
+  // tools.links
+  "tools.links.enabled":
+    "Enable link understanding — URLs in inbound messages are fetched and summarised for the agent.",
+  "tools.links.maxLinks":
+    "Maximum number of links to process per inbound message (default: 3).",
+  "tools.links.timeoutSeconds":
+    "Timeout in seconds for fetching and processing each link (default: 15).",
+  "tools.links.models":
+    'CLI-based link processor commands (array of { type: "cli", command, args, timeoutSeconds }).',
+  "tools.links.scope":
+    "Scope gating for link understanding — limit to specific channels or conversation types.",
+
+  // tools.profile / alsoAllow / byProvider
+  "tools.profile":
+    'Base tool profile applied to all agents ("minimal", "coding", "messaging", or "full"). Individual tools can be added via tools.alsoAllow.',
+  "tools.alsoAllow":
+    "Additional tool names merged into the allowlist on top of the active profile.",
+  "agents.list[].tools.profile":
+    'Per-agent tool profile override ("minimal", "coding", "messaging", or "full").',
+  "agents.list[].tools.alsoAllow":
+    "Per-agent additional tools merged into the allowlist on top of the agent profile.",
+  "tools.byProvider":
+    'Per-provider or per-model tool policy overrides. Keys are provider IDs (e.g. "openai") or full model IDs (e.g. "openai/gpt-4.1").',
+  "agents.list[].tools.byProvider":
+    "Per-agent, per-provider tool policy overrides. Keys are provider or model IDs.",
+
+  // tools.exec — additional fields
+  "tools.exec.host":
+    'Where exec commands run: "sandbox" (default, Pi runner), "gateway" (host shell), or "node" (remote node via tools.exec.node).',
+  "tools.exec.security":
+    'Exec security mode: "deny" (default, block all), "allowlist" (block unless approved or in safeBins), "full" (allow all — dangerous).',
+  "tools.exec.ask":
+    'When to prompt for exec approval: "on-miss" (default, prompt for unlisted commands), "always", or "off".',
+  "tools.exec.node":
+    'Default node binding for exec when tools.exec.host is "node" (node id or name).',
+  "tools.exec.approvalRunningNoticeMs":
+    'Delay (ms) before showing a "still running…" notice for approval-backed exec commands (default: 10000).',
+
+  // skills.load
+  "skills.load.watch":
+    "Watch skill directories for file changes and hot-reload skills without restarting the gateway (default: false).",
+  "skills.load.watchDebounceMs":
+    "Debounce delay (ms) before applying skill directory changes when watch is enabled (default: 500).",
+
+  // agents.defaults.workspace
+  "agents.defaults.workspace":
+    "Default agent working directory (absolute path). Each agent can override this. Determines where SOUL.md, MEMORY.md, and other workspace files are read from.",
+
+  // agents.defaults.memorySearch — gaps
+  "agents.defaults.memorySearch.enabled":
+    "Enable vector memory search for this agent (default: true when a provider is configured).",
+  "agents.defaults.memorySearch.model":
+    'Embedding model id override (e.g. "text-embedding-3-small"). Provider selects a default when omitted.',
+  "agents.defaults.memorySearch.chunking.tokens":
+    "Chunk size in tokens for splitting memory documents before embedding (default: 256).",
+  "agents.defaults.memorySearch.chunking.overlap":
+    "Overlap tokens between consecutive chunks to preserve context across chunk boundaries (default: 32).",
+  "agents.defaults.memorySearch.sync.onSessionStart":
+    "Reindex memory files when a new session starts (default: false). Useful for agents with frequently updated memory.",
+  "agents.defaults.memorySearch.sync.watchDebounceMs":
+    "Debounce delay (ms) before reindexing after a watched memory file changes (default: 2000).",
+  "agents.defaults.memorySearch.query.maxResults":
+    "Maximum memory search results returned per query (default: 6).",
+  "agents.defaults.memorySearch.query.minScore":
+    "Minimum relevance score for memory search results (0.0–1.0). Results below this threshold are discarded.",
+
+  // ui
+  "ui.seamColor":
+    'Accent/tint color for OpenClaw UI chrome (CSS hex, e.g. "#6c47ff"). Applied to the Control UI and WebChat seam.',
+  "ui.assistant.name":
+    "Display name for the assistant shown in the Control UI, WebChat, and on-device surfaces.",
+  "ui.assistant.avatar":
+    "Assistant avatar for UI surfaces — emoji, short text, http(s) URL, or a data URI.",
+
+  // browser
+  "browser.evaluateEnabled":
+    "Allow the act:evaluate action for running arbitrary JavaScript in the browser page (default: true; disable in untrusted environments).",
+  "browser.snapshotDefaults":
+    "Default options applied to every browser snapshot (act:snapshot) call.",
+  "browser.snapshotDefaults.mode":
+    '"efficient" captures the full accessibility tree and is currently the only supported mode.',
+  "browser.remoteCdpTimeoutMs":
+    "HTTP timeout (ms) when probing a remote Chrome DevTools Protocol endpoint for availability (default: 1500).",
+  "browser.remoteCdpHandshakeTimeoutMs":
+    "WebSocket handshake timeout (ms) when connecting to a remote CDP endpoint (default: max(remoteCdpTimeoutMs × 2, 2000)).",
+
+  // talk
+  "talk.apiKey":
+    "ElevenLabs API key for Talk mode TTS (fallback: ELEVENLABS_API_KEY env var).",
+
+  // top-level channel sections
+  "channels.whatsapp":
+    "WhatsApp channel configuration (accounts, dmPolicy, selfChatMode, debounceMs, etc.).",
+  "channels.telegram":
+    "Telegram channel configuration (accounts, botToken, dmPolicy, streamMode, retry, etc.).",
+  "channels.discord":
+    "Discord channel configuration (accounts, token, dmPolicy, intents, presence, etc.).",
+  "channels.slack":
+    "Slack channel configuration (accounts, botToken, appToken, dmPolicy, streamMode, etc.).",
+  "channels.mattermost":
+    "Mattermost channel configuration (baseUrl, botToken, chatmode, requireMention, etc.).",
+  "channels.signal":
+    "Signal channel configuration (account, dmPolicy, etc.).",
+  "channels.imessage":
+    "iMessage channel configuration (cliPath, dmPolicy, etc.).",
+  "channels.bluebubbles":
+    "BlueBubbles channel configuration — recommended iMessage bridge for macOS.",
+  "channels.msteams":
+    "Microsoft Teams channel configuration.",
+
+  // channel credential fields
+  "channels.telegram.botToken":
+    "Telegram bot token from @BotFather (sensitive; prefer tokenFile or TELEGRAM_BOT_TOKEN env var).",
+  "channels.discord.token":
+    "Discord bot token from the Discord Developer Portal (sensitive; prefer DISCORD_TOKEN env var or per-account env override).",
+  "channels.slack.botToken":
+    "Slack bot token (xoxb-…) from the Slack app OAuth settings (sensitive).",
+  "channels.slack.appToken":
+    "Slack app-level token (xapp-…) required for Socket Mode connections (sensitive).",
+  "channels.slack.userToken":
+    "Optional Slack user token (xoxp-…) for user-scoped actions such as reactions (sensitive).",
+  "channels.slack.userTokenReadOnly":
+    "Restrict the Slack user token to read-only operations (default: true). Set false to allow user-scoped writes.",
+  "channels.signal.account":
+    "Signal account phone number in E.164 format (e.g. +15551234567) registered with signal-cli.",
+  "channels.imessage.cliPath":
+    "Path to the imsg or BlueBubbles CLI binary used to send iMessage replies.",
+
+  // channels.telegram.capabilities
+  "channels.telegram.capabilities.inlineButtons":
+    'Scope for Telegram inline buttons: "off" (disabled), "dm" (DMs only), "group" (groups only), "all" (everywhere), or "allowlist" (restricted to allowFrom senders).',
 };
