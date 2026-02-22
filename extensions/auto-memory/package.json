@@ -1,0 +1,18 @@
+{
+  "name": "@openclaw/auto-memory",
+  "version": "2026.2.22",
+  "private": true,
+  "description": "Automatic memory extraction from conversations into categorized memory files",
+  "type": "module",
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.73.0"
+  },
+  "devDependencies": {
+    "openclaw": "workspace:*"
+  },
+  "openclaw": {
+    "extensions": [
+      "./index.ts"
+    ]
+  }
+}

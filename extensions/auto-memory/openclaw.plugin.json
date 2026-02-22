@@ -1,0 +1,57 @@
+{
+  "id": "auto-memory",
+  "uiHints": {
+    "apiKey": {
+      "label": "Anthropic API Key",
+      "sensitive": true,
+      "placeholder": "sk-ant-... (or leave blank to use ANTHROPIC_API_KEY env var)",
+      "help": "API key for Anthropic Claude. Falls back to ANTHROPIC_API_KEY environment variable."
+    },
+    "model": {
+      "label": "Extraction Model",
+      "placeholder": "claude-haiku-4-5-20251001",
+      "help": "Claude model used for memory extraction. Haiku is recommended for speed and cost."
+    },
+    "minMessages": {
+      "label": "Minimum Messages",
+      "help": "Minimum number of messages in a conversation before extraction runs.",
+      "advanced": true,
+      "placeholder": "4"
+    },
+    "cooldownMinutes": {
+      "label": "Cooldown (minutes)",
+      "help": "Minimum minutes between extraction runs for the same session.",
+      "advanced": true,
+      "placeholder": "5"
+    },
+    "enabled": {
+      "label": "Enabled",
+      "help": "Enable or disable automatic memory extraction."
+    }
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "apiKey": {
+        "type": "string"
+      },
+      "model": {
+        "type": "string"
+      },
+      "minMessages": {
+        "type": "number",
+        "minimum": 2,
+        "maximum": 50
+      },
+      "cooldownMinutes": {
+        "type": "number",
+        "minimum": 1,
+        "maximum": 60
+      },
+      "enabled": {
+        "type": "boolean"
+      }
+    }
+  }
+}
