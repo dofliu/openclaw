@@ -27,6 +27,11 @@
     "enabled": {
       "label": "Enabled",
       "help": "Enable or disable automatic memory extraction."
+    },
+    "scanOnStartup": {
+      "label": "Scan on Startup",
+      "help": "Scan all recent session files for new memories when openclaw starts.",
+      "advanced": true
     }
   },
   "configSchema": {
@@ -50,6 +55,9 @@
         "maximum": 60
       },
       "enabled": {
+        "type": "boolean"
+      },
+      "scanOnStartup": {
         "type": "boolean"
       }
     }

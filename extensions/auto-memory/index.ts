@@ -10,6 +10,12 @@
  *   memory/work.md         - projects, tasks, technical context, goals
  *   memory/habits.md       - daily patterns, routines, typical approaches
  *   memory/decisions.md    - important choices, commitments, conclusions
+ *
+ * CLI commands:
+ *   openclaw auto-memory show [category]  - display memory
+ *   openclaw auto-memory stats            - entries per category
+ *   openclaw auto-memory clear <category> - clear a category
+ *   openclaw auto-memory scan [--force]   - batch-extract from old sessions
  */
 
 import Anthropic from "@anthropic-ai/sdk";
@@ -46,6 +52,9 @@ const DEFAULT_MODEL = "claude-haiku-4-5-20251001";
 const DEFAULT_MIN_MESSAGES = 4;
 const DEFAULT_COOLDOWN_MINUTES = 5;
 
+// Session files older than this are skipped during startup scan
+const MAX_SCAN_AGE_DAYS = 30;
+
 // ============================================================================
 // Types
 // ============================================================================
@@ -56,6 +65,7 @@ type PluginConfig = {
   minMessages?: number;
   cooldownMinutes?: number;
   enabled?: boolean;
+  scanOnStartup?: boolean;
 };
 
 type MemoryUpdate = {
@@ -69,6 +79,11 @@ type ExtractionResult = Partial<Record<Category, MemoryUpdate[]>>;
 type SessionState = {
   lastExtractedAt: number;
   lastMessageCount: number;
+};
+
+type ScanState = {
+  processedFiles: string[];
+  lastScanAt: number;
 };
 
 // ============================================================================
@@ -165,9 +180,7 @@ async function writeMemoryFile(
   await fs.writeFile(path.join(memoryDir, filename), content, "utf-8");
 }
 
-async function readAllMemory(
-  memoryDir: string,
-): Promise<Record<Category, string>> {
+async function readAllMemory(memoryDir: string): Promise<Record<Category, string>> {
   const result = {} as Record<Category, string>;
   await Promise.all(
     CATEGORIES.map(async (cat) => {
@@ -178,15 +191,32 @@ async function readAllMemory(
 }
 
 // ============================================================================
+// Scan state tracking
+// ============================================================================
+
+async function readScanState(stateDir: string): Promise<ScanState> {
+  const statePath = path.join(stateDir, PLUGIN_ID, "state.json");
+  try {
+    const raw = await fs.readFile(statePath, "utf-8");
+    return JSON.parse(raw) as ScanState;
+  } catch {
+    return { processedFiles: [], lastScanAt: 0 };
+  }
+}
+
+async function writeScanState(stateDir: string, state: ScanState): Promise<void> {
+  const dir = path.join(stateDir, PLUGIN_ID);
+  await fs.mkdir(dir, { recursive: true });
+  await fs.writeFile(path.join(dir, "state.json"), JSON.stringify(state, null, 2), "utf-8");
+}
+
+// ============================================================================
 // Memory update application
 // ============================================================================
 
 function applyUpdatesToContent(existingContent: string, updates: MemoryUpdate[]): string {
-  const lines = existingContent
-    .split("\n")
-    .filter((l) => l !== undefined) as string[];
+  const lines = existingContent.split("\n").filter((l) => l !== undefined) as string[];
 
-  // Remove trailing empty lines
   while (lines.length > 0 && !lines[lines.length - 1]!.trim()) {
     lines.pop();
   }
@@ -197,7 +227,6 @@ function applyUpdatesToContent(existingContent: string, updates: MemoryUpdate[])
     if (update.action === "add") {
       lines.push(`- ${update.text.trim()}`);
     } else if (update.action === "update" && update.old) {
-      // Try to find the old entry (with or without leading dash)
       const oldNormalized = update.old.trim().replace(/^-\s*/, "");
       const idx = lines.findIndex((l) => {
         const normalized = l.trim().replace(/^-\s*/, "");
@@ -207,7 +236,6 @@ function applyUpdatesToContent(existingContent: string, updates: MemoryUpdate[])
       if (idx >= 0) {
         lines[idx] = `- ${update.text.trim()}`;
       } else {
-        // Old entry not found - add as new
         lines.push(`- ${update.text.trim()}`);
       }
     }
@@ -281,7 +309,6 @@ Rules:
     .map((b) => (b as { type: "text"; text: string }).text)
     .join("");
 
-  // Extract JSON from response
   const jsonMatch = responseText.match(/\{[\s\S]*\}/);
   if (!jsonMatch) return {};
 
@@ -303,15 +330,15 @@ async function runExtraction(params: {
   messages: Array<{ role: string; text: string }>;
   logger: OpenClawPluginApi["logger"];
   label: string;
-}): Promise<void> {
+}): Promise<number> {
   const { client, model, workspaceDir, messages, logger, label } = params;
 
   const userMessages = messages.filter((m) => m.role === "user");
   const conversationText = formatConversation(messages);
 
-  if (!conversationText.trim()) return;
+  if (!conversationText.trim()) return 0;
 
-  logger.info(`${PLUGIN_ID}: extracting memory [${label}] (${userMessages.length} user messages)`);
+  logger.info(`${PLUGIN_ID}: extracting [${label}] (${userMessages.length} user messages)`);
 
   const memoryDir = path.join(workspaceDir, "memory");
   const existingMemory = await readAllMemory(memoryDir);
@@ -334,8 +361,136 @@ async function runExtraction(params: {
   }
 
   if (totalUpdates === 0) {
-    logger.info?.(`${PLUGIN_ID}: no new memory extracted [${label}]`);
+    logger.info?.(`${PLUGIN_ID}: nothing new [${label}]`);
   }
+
+  return totalUpdates;
+}
+
+// ============================================================================
+// Batch scan
+// ============================================================================
+
+async function findSessionFiles(stateDir: string): Promise<string[]> {
+  const agentsDir = path.join(stateDir, "agents");
+  const files: string[] = [];
+
+  let agentDirs: string[];
+  try {
+    agentDirs = await fs.readdir(agentsDir);
+  } catch {
+    return files;
+  }
+
+  const cutoffMs = Date.now() - MAX_SCAN_AGE_DAYS * 24 * 60 * 60 * 1000;
+
+  await Promise.all(
+    agentDirs.map(async (agentId) => {
+      const sessionsDir = path.join(agentsDir, agentId, "sessions");
+      let entries: string[];
+      try {
+        entries = await fs.readdir(sessionsDir);
+      } catch {
+        return;
+      }
+
+      await Promise.all(
+        entries
+          .filter((f) => f.endsWith(".jsonl"))
+          .map(async (f) => {
+            const full = path.join(sessionsDir, f);
+            try {
+              const stat = await fs.stat(full);
+              if (stat.mtimeMs >= cutoffMs) {
+                files.push(full);
+              }
+            } catch {
+              // Skip inaccessible files
+            }
+          }),
+      );
+    }),
+  );
+
+  return files.sort();
+}
+
+async function runBatchScan(params: {
+  client: Anthropic;
+  model: string;
+  stateDir: string;
+  workspaceDir: string;
+  minMessages: number;
+  logger: OpenClawPluginApi["logger"];
+  force?: boolean;
+  onProgress?: (current: number, total: number, file: string) => void;
+}): Promise<{ scanned: number; extracted: number; skipped: number }> {
+  const { client, model, stateDir, workspaceDir, minMessages, logger, force, onProgress } = params;
+
+  const scanState = await readScanState(stateDir);
+  const processedSet = new Set(scanState.processedFiles);
+
+  const allFiles = await findSessionFiles(stateDir);
+
+  const toProcess = force ? allFiles : allFiles.filter((f) => !processedSet.has(f));
+
+  let extracted = 0;
+  let skipped = 0;
+
+  for (let i = 0; i < toProcess.length; i++) {
+    const sessionFile = toProcess[i]!;
+    onProgress?.(i + 1, toProcess.length, path.basename(sessionFile));
+
+    const messages = await readSessionMessages(sessionFile);
+    const userMessages = messages.filter((m) => m.role === "user");
+
+    if (userMessages.length < Math.ceil(minMessages / 2)) {
+      skipped++;
+      processedSet.add(sessionFile);
+      continue;
+    }
+
+    try {
+      const count = await runExtraction({
+        client,
+        model,
+        workspaceDir,
+        messages,
+        logger,
+        label: `scan:${path.basename(sessionFile)}`,
+      });
+      if (count > 0) extracted++;
+    } catch (err) {
+      logger.warn(`${PLUGIN_ID}: scan failed for ${path.basename(sessionFile)}: ${String(err)}`);
+    }
+
+    processedSet.add(sessionFile);
+
+    // Persist state after each file so progress survives interruption
+    await writeScanState(stateDir, {
+      processedFiles: Array.from(processedSet),
+      lastScanAt: Date.now(),
+    });
+  }
+
+  return { scanned: toProcess.length, extracted, skipped };
+}
+
+// ============================================================================
+// Memory display helpers
+// ============================================================================
+
+function countBullets(content: string): number {
+  return content
+    .split("\n")
+    .filter((l) => l.trim().startsWith("-"))
+    .length;
+}
+
+function renderMemoryCategory(cat: Category, content: string): string {
+  const lines = content.trim();
+  if (!lines) return `### ${cat}\n(empty)`;
+  return `### ${cat}\n${lines}`;
 }
 
 // ============================================================================
@@ -367,6 +522,7 @@ const autoMemoryPlugin = {
     const model = pluginConfig.model || DEFAULT_MODEL;
     const minMessages = pluginConfig.minMessages ?? DEFAULT_MIN_MESSAGES;
     const cooldownMs = (pluginConfig.cooldownMinutes ?? DEFAULT_COOLDOWN_MINUTES) * 60 * 1000;
+    const scanOnStartup = pluginConfig.scanOnStartup ?? false;
 
     const client = new Anthropic({ apiKey });
 
@@ -376,10 +532,8 @@ const autoMemoryPlugin = {
     function shouldExtract(sessionKey: string, messageCount: number): boolean {
       const state = sessionState.get(sessionKey);
       if (!state) return messageCount >= minMessages;
-
       const timeSinceLast = Date.now() - state.lastExtractedAt;
       const newMessagesSinceLast = messageCount - state.lastMessageCount;
-
       return timeSinceLast >= cooldownMs && newMessagesSinceLast >= 2;
     }
 
@@ -391,7 +545,7 @@ const autoMemoryPlugin = {
     }
 
     // ------------------------------------------------------------------
-    // Hook: agent_end — extract after each conversation turn
+    // Hook: agent_end
     // ------------------------------------------------------------------
     api.on("agent_end", async (event, ctx) => {
       if (!event.success || !event.messages || event.messages.length === 0) return;
@@ -425,12 +579,11 @@ const autoMemoryPlugin = {
     });
 
     // ------------------------------------------------------------------
-    // Hook: after_compaction — extract from session file before details are lost
+    // Hook: after_compaction
     // ------------------------------------------------------------------
     api.on("after_compaction", async (event, ctx) => {
       const sessionFile = event.sessionFile;
       const workspaceDir = ctx.workspaceDir;
-
       if (!sessionFile || !workspaceDir) return;
 
       try {
@@ -447,7 +600,6 @@ const autoMemoryPlugin = {
           label: "compaction",
         });
 
-        // Reset cooldown so agent_end doesn't re-extract the same content immediately
         const sessionKey = ctx.sessionKey ?? ctx.sessionId ?? "default";
         recordExtraction(sessionKey, event.messageCount);
       } catch (err) {
@@ -456,13 +608,12 @@ const autoMemoryPlugin = {
     });
 
     // ------------------------------------------------------------------
-    // Hook: before_reset — extract before /new or /reset clears the session
+    // Hook: before_reset
     // ------------------------------------------------------------------
     api.on("before_reset", async (event, ctx) => {
       const workspaceDir = ctx.workspaceDir;
       if (!workspaceDir) return;
 
-      // Try to get messages from the event or session file
       let messages: Array<{ role: string; text: string }> = [];
 
       if (event.messages && event.messages.length > 0) {
@@ -488,12 +639,164 @@ const autoMemoryPlugin = {
       }
     });
 
+    // ------------------------------------------------------------------
+    // CLI commands
+    // ------------------------------------------------------------------
+    api.registerCli(
+      ({ program, workspaceDir, logger }) => {
+        const effectiveWorkspaceDir = workspaceDir ?? process.cwd();
+        const effectiveStateDir = api.runtime.state.resolveStateDir(process.env);
+        const memoryDir = path.join(effectiveWorkspaceDir, "memory");
+
+        const cmd = program
+          .command("auto-memory")
+          .description("Auto-memory plugin: inspect and manage memory files");
+
+        // -- show [category] --
+        cmd
+          .command("show [category]")
+          .description("Display memory (optionally filtered to one category)")
+          .action(async (category?: string) => {
+            const cats = category
+              ? ([category] as Category[]).filter((c) => CATEGORIES.includes(c))
+              : [...CATEGORIES];
+
+            if (category && cats.length === 0) {
+              console.error(
+                `Unknown category: ${category}. Valid: ${CATEGORIES.join(", ")}`,
+              );
+              process.exit(1);
+            }
+
+            const memory = await readAllMemory(memoryDir);
+
+            for (const cat of cats) {
+              console.log(renderMemoryCategory(cat, memory[cat]));
+              console.log();
+            }
+          });
+
+        // -- stats --
+        cmd
+          .command("stats")
+          .description("Show entry counts per memory category")
+          .action(async () => {
+            const memory = await readAllMemory(memoryDir);
+            let total = 0;
+
+            console.log(`Memory directory: ${memoryDir}\n`);
+            console.log("Category     │ Entries");
+            console.log("─────────────┼────────");
+
+            for (const cat of CATEGORIES) {
+              const count = countBullets(memory[cat]);
+              total += count;
+              const padded = cat.padEnd(12);
+              console.log(`${padded} │ ${count}`);
+            }
+
+            console.log("─────────────┼────────");
+            console.log(`${"Total".padEnd(12)} │ ${total}`);
+          });
+
+        // -- clear <category> --
+        cmd
+          .command("clear <category>")
+          .description("Clear all entries in a memory category")
+          .option("-y, --yes", "Skip confirmation prompt")
+          .action(async (category: string, opts: { yes?: boolean }) => {
+            if (!CATEGORIES.includes(category as Category)) {
+              console.error(
+                `Unknown category: ${category}. Valid: ${CATEGORIES.join(", ")}`,
+              );
+              process.exit(1);
+            }
+
+            const cat = category as Category;
+            const current = await readMemoryFile(memoryDir, CATEGORY_FILES[cat]);
+            const count = countBullets(current);
+
+            if (count === 0) {
+              console.log(`memory/${CATEGORY_FILES[cat]} is already empty.`);
+              return;
+            }
+
+            if (!opts.yes) {
+              console.log(
+                `This will delete ${count} entries from memory/${CATEGORY_FILES[cat]}.`,
+              );
+              console.log("Re-run with --yes to confirm.");
+              return;
+            }
+
+            await writeMemoryFile(memoryDir, CATEGORY_FILES[cat], "");
+            console.log(`Cleared memory/${CATEGORY_FILES[cat]} (${count} entries removed).`);
+          });
+
+        // -- scan [--force] --
+        cmd
+          .command("scan")
+          .description(
+            `Scan all session files and extract memory (last ${MAX_SCAN_AGE_DAYS} days)`,
+          )
+          .option("--force", "Re-process sessions that were already scanned")
+          .option("--agent <id>", "Limit scan to a specific agent ID")
+          .action(async (opts: { force?: boolean; agent?: string }) => {
+            console.log(
+              `Scanning sessions (state: ${effectiveStateDir}, memory: ${memoryDir})...\n`,
+            );
+
+            const result = await runBatchScan({
+              client,
+              model,
+              stateDir: effectiveStateDir,
+              workspaceDir: effectiveWorkspaceDir,
+              minMessages,
+              logger,
+              force: opts.force,
+              onProgress: (current, total, file) => {
+                process.stdout.write(`\r[${current}/${total}] ${file.slice(0, 50).padEnd(50)}`);
+              },
+            });
+
+            process.stdout.write("\n");
+            console.log(
+              `\nDone. Scanned: ${result.scanned} | Extracted new memory: ${result.extracted} | Skipped: ${result.skipped}`,
+            );
+          });
+      },
+      { commands: ["auto-memory"] },
+    );
+
+    // ------------------------------------------------------------------
+    // Service (startup scan + logging)
+    // ------------------------------------------------------------------
     api.registerService({
       id: PLUGIN_ID,
-      start: () => {
+      start: async (ctx) => {
         api.logger.info(
           `${PLUGIN_ID}: started (model: ${model}, minMessages: ${minMessages}, cooldown: ${cooldownMs / 60000}m)`,
         );
+
+        if (!scanOnStartup || !ctx.workspaceDir) return;
+
+        try {
+          api.logger.info(`${PLUGIN_ID}: startup scan begin`);
+          const result = await runBatchScan({
+            client,
+            model,
+            stateDir: ctx.stateDir,
+            workspaceDir: ctx.workspaceDir,
+            minMessages,
+            logger: ctx.logger,
+            force: false,
+          });
+          api.logger.info(
+            `${PLUGIN_ID}: startup scan done — scanned: ${result.scanned}, extracted: ${result.extracted}, skipped: ${result.skipped}`,
+          );
+        } catch (err) {
+          api.logger.warn(`${PLUGIN_ID}: startup scan failed: ${String(err)}`);
+        }
       },
     });
   },
